@@ -24,6 +24,7 @@ jobs:
           -scheme "OMO Dreams" \
           -destination 'platform=iOS Simulator,name=iPhone 15,OS=latest' \
           -enableCodeCoverage YES \
+          PRODUCT_BUNDLE_IDENTIFIER=com.omo.OMO-Dreams \
           | xcpretty
           
     - name: Run UI Tests
@@ -32,6 +33,7 @@ jobs:
           -scheme "OMO Dreams" \
           -destination 'platform=iOS Simulator,name=iPhone 15,OS=latest' \
           -only-testing:OMODreamsUITests \
+          PRODUCT_BUNDLE_IDENTIFIER=com.omo.OMO-Dreams \
           | xcpretty
 
   build:
@@ -51,6 +53,7 @@ jobs:
         xcodebuild build \
           -scheme "OMO Dreams" \
           -destination 'platform=iOS Simulator,name=iPhone 15,OS=latest' \
+          PRODUCT_BUNDLE_IDENTIFIER=com.omo.OMO-Dreams \
           | xcpretty
           
     - name: Build for Device
@@ -58,6 +61,7 @@ jobs:
         xcodebuild build \
           -scheme "OMO Dreams" \
           -destination 'generic/platform=iOS' \
+          PRODUCT_BUNDLE_IDENTIFIER=com.omo.OMO-Dreams \
           | xcpretty
 
   security:
@@ -103,6 +107,7 @@ jobs:
           -scheme "OMO Dreams" \
           -archivePath build/OMO_Dreams.xcarchive \
           -destination 'generic/platform=iOS' \
+          PRODUCT_BUNDLE_IDENTIFIER=com.omo.OMO-Dreams \
           | xcpretty
           
     - name: Upload Archive

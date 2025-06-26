@@ -93,6 +93,10 @@ The app uses SwiftData for local data persistence. The `Dream` model includes:
 - `dream_text`: Description of the dream
 - `dream_tags`: Comma-separated tags for categorization
 
+### Bundle Identifier
+- **Bundle ID**: `com.omo.OMO-Dreams`
+- **Team**: Configured for Apple Developer distribution
+
 ### Color Scheme
 - **Primary**: Purple (#8B5CF6)
 - **Text**: System Gray for readability

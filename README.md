@@ -5,7 +5,7 @@ A beautiful and intuitive dream journal app built with SwiftUI and SwiftData, de
 ## 🌙 Features
 
 - **Dream Journaling**: Record and organize your dreams with rich text descriptions
-- **Smart Tagging**: Categorize dreams with custom tags and autocomplete suggestions
+- **Smart Pattern Recognition**: Categorize dreams with custom patterns and autocomplete suggestions
 - **Date Tracking**: Keep track of when each dream occurred
 - **Clean Interface**: Modern, intuitive design optimized for iOS
 - **Data Persistence**: Secure local storage using SwiftData
@@ -54,7 +54,7 @@ OMO Dreams/
 ├── OMO Dreams/
 │   ├── ContentView.swift          # Main app interface
 │   ├── OMO_DreamsApp.swift        # App entry point
-│   ├── Item.swift                 # Dream data model
+│   ├── Dream.swift                # Dream data model
 │   └── Assets.xcassets/           # App assets
 ├── OMO DreamsTests/
 │   └── DreamTests.swift           # Unit tests
@@ -91,7 +91,7 @@ xcodebuild archive -scheme "OMO Dreams" -archivePath build/OMO_Dreams.xcarchive
 The app uses SwiftData for local data persistence. The `Dream` model includes:
 - `dream_date`: Date of the dream
 - `dream_text`: Description of the dream
-- `dream_tags`: Comma-separated tags for categorization
+- `dream_patterns`: Comma-separated patterns for categorization
 
 ### Bundle Identifier
 - **Bundle ID**: `com.omo.OMO-Dreams`
@@ -157,4 +157,4 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ---
 
-**OMO Dreams** - Your journey to lucid dreaming starts here 🌙 
+**OMO Dreams** - Your journey to lucid dreaming starts here 🌙

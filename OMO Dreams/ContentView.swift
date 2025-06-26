@@ -14,13 +14,13 @@ struct ContentView: View {
     
     @State private var showingAddDream = false
     @State private var dreamText = ""
-    @State private var dreamTags = ""
+    @State private var dreamPatterns = ""
     @State private var dreamDate = Date()
     @State private var editingDream: Dream? = nil
     
-    // Computed property: all unique tags in lowercased, sorted
-    var allTags: [String] {
-        Set(dreams.flatMap { $0.dream_tags.components(separatedBy: ",").map { $0.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() } })
+    // Computed property: all unique patterns in lowercased, sorted
+    var allPatterns: [String] {
+        Set(dreams.flatMap { $0.dream_patterns.components(separatedBy: ",").map { $0.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() } })
             .filter { !$0.isEmpty }
             .sorted()
     }
@@ -91,10 +91,10 @@ struct ContentView: View {
                 AddDreamSheet(
                     isPresented: $showingAddDream,
                     dreamText: $dreamText,
-                    dreamTags: $dreamTags,
+                    dreamPatterns: $dreamPatterns,
                     dreamDate: $dreamDate,
                     isEditing: editingDream != nil,
-                    allTags: allTags,
+                    allPatterns: allPatterns,
                     onSave: {
                         if let editingDream = editingDream {
                             updateDream(editingDream)
@@ -109,7 +109,7 @@ struct ContentView: View {
     
     private func prepareForNewDream() {
         dreamText = ""
-        dreamTags = ""
+        dreamPatterns = ""
         dreamDate = Calendar.current.startOfDay(for: Date())
         editingDream = nil
         showingAddDream = true
@@ -117,7 +117,7 @@ struct ContentView: View {
     
     private func prepareForEditDream(_ dream: Dream) {
         dreamText = dream.dream_text
-        dreamTags = dream.dream_tags
+        dreamPatterns = dream.dream_patterns
         dreamDate = dream.dream_date
         editingDream = dream
         showingAddDream = true
@@ -128,11 +128,11 @@ struct ContentView: View {
             let newDream = Dream(
                 dream_date: dreamDate,
                 dream_text: dreamText,
-                dream_tags: dreamTags
+                dream_patterns: dreamPatterns
             )
             modelContext.insert(newDream)
             dreamText = ""
-            dreamTags = ""
+            dreamPatterns = ""
         }
     }
     
@@ -140,7 +140,7 @@ struct ContentView: View {
         withAnimation {
             dream.dream_date = dreamDate
             dream.dream_text = dreamText
-            dream.dream_tags = dreamTags
+            dream.dream_patterns = dreamPatterns
         }
     }
     
@@ -167,14 +167,14 @@ struct DreamRowView: View {
             }
             
             Text(dream.dream_text)
-                .lineLimit(3)
+            .lineLimit(3)
                 .font(.body)
                 .foregroundColor(Color(.systemGray))
             
-            if !dream.dream_tags.isEmpty {
+            if !dream.dream_patterns.isEmpty {
                 HStack {
-                    ForEach(dream.dream_tags.components(separatedBy: ",").map { $0.trimmingCharacters(in: .whitespaces) }, id: \.self) { tag in
-                        Text(tag)
+                    ForEach(dream.dream_patterns.components(separatedBy: ",").map { $0.trimmingCharacters(in: .whitespaces) }, id: \.self) { pattern in
+                        Text(pattern)
                             .font(.caption)
                             .padding(.horizontal, 8)
                             .padding(.vertical, 4)
@@ -192,22 +192,23 @@ struct DreamRowView: View {
 struct AddDreamSheet: View {
     @Binding var isPresented: Bool
     @Binding var dreamText: String
-    @Binding var dreamTags: String
+    @Binding var dreamPatterns: String
     @Binding var dreamDate: Date
     var isEditing: Bool = false
-    var allTags: [String] = []
+    var allPatterns: [String] = []
     var onSave: () -> Void
     
     @State private var selectedSuggestion: String? = nil
     @State private var showDatePicker: Bool = false
+    @FocusState private var isTextFieldFocused: Bool
     
-    var currentTagFragment: String {
-        let parts = dreamTags.components(separatedBy: ",")
+    var currentPatternFragment: String {
+        let parts = dreamPatterns.components(separatedBy: ",")
         return parts.last?.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() ?? ""
     }
-    var tagSuggestions: [String] {
-        guard !currentTagFragment.isEmpty else { return [] }
-        return allTags.filter { $0.hasPrefix(currentTagFragment) && !dreamTags.lowercased().contains($0) }
+    var patternSuggestions: [String] {
+        guard !currentPatternFragment.isEmpty else { return [] }
+        return allPatterns.filter { $0.hasPrefix(currentPatternFragment) && !dreamPatterns.lowercased().contains($0) }
     }
     
     var body: some View {
@@ -215,19 +216,23 @@ struct AddDreamSheet: View {
             Form {
                 Section(header: Text("Describe tu sueño")) {
                     TextEditor(text: $dreamText)
-                        .frame(minHeight: 120, maxHeight: 200)
+                        .frame(minHeight: 300, maxHeight: 400)
                         .padding(4)
+                        .focused($isTextFieldFocused)
                 }
-                Section(header: Text("Tags (separados por comas)")) {
+                Section(header: Text("Patrones")) {
                     VStack(alignment: .leading, spacing: 4) {
-                        TextField("Ejemplo: volar, agua, colores", text: $dreamTags)
+                        TextEditor(text: $dreamPatterns)
+                            .frame(minHeight: 80, maxHeight: 120)
+                            .padding(4)
                             .textInputAutocapitalization(.never)
-                        if !tagSuggestions.isEmpty {
+                            .focused($isTextFieldFocused)
+                        if !patternSuggestions.isEmpty {
                             ScrollView(.horizontal, showsIndicators: false) {
                                 HStack(spacing: 8) {
-                                    ForEach(tagSuggestions, id: \.self) { suggestion in
+                                    ForEach(patternSuggestions, id: \.self) { suggestion in
                                         Button(action: {
-                                            autocompleteTag(suggestion)
+                                            autocompletePattern(suggestion)
                                         }) {
                                             Text(suggestion)
                                                 .font(.caption)
@@ -277,7 +282,7 @@ struct AddDreamSheet: View {
                     Button("Cancelar") {
                         isPresented = false
                         dreamText = ""
-                        dreamTags = ""
+                        dreamPatterns = ""
                     }
                 }
                 ToolbarItem(placement: .confirmationAction) {
@@ -288,15 +293,18 @@ struct AddDreamSheet: View {
                     .disabled(dreamText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
                 }
             }
+            .onTapGesture {
+                isTextFieldFocused = false
+            }
         }
     }
-    private func autocompleteTag(_ tag: String) {
-        var parts = dreamTags.components(separatedBy: ",")
+    private func autocompletePattern(_ pattern: String) {
+        var parts = dreamPatterns.components(separatedBy: ",")
         if parts.isEmpty {
-            dreamTags = tag
+            dreamPatterns = pattern
         } else {
-            parts[parts.count - 1] = " " + tag
-            dreamTags = parts.joined(separator: ",").replacingOccurrences(of: ", ,", with: ", ")
+            parts[parts.count - 1] = " " + pattern
+            dreamPatterns = parts.joined(separator: ",").replacingOccurrences(of: ", ,", with: ", ")
         }
     }
 }

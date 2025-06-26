@@ -21,15 +21,15 @@ final class DreamTests: XCTestCase {
         // Given
         let date = Date()
         let text = "Test dream text"
-        let tags = "test, dream, swift"
+        let patterns = "test, dream, swift"
         
         // When
-        let dream = Dream(dream_date: date, dream_text: text, dream_tags: tags)
+        let dream = Dream(dream_date: date, dream_text: text, dream_patterns: patterns)
         modelContext.insert(dream)
         
         // Then
         XCTAssertEqual(dream.dream_text, text)
-        XCTAssertEqual(dream.dream_tags, tags)
+        XCTAssertEqual(dream.dream_patterns, patterns)
         XCTAssertEqual(dream.dream_date, date)
     }
     
@@ -39,25 +39,25 @@ final class DreamTests: XCTestCase {
         let validText = "Valid dream text"
         
         // When & Then
-        let dreamWithEmptyText = Dream(dream_date: Date(), dream_text: emptyText, dream_tags: "")
+        let dreamWithEmptyText = Dream(dream_date: Date(), dream_text: emptyText, dream_patterns: "")
         XCTAssertTrue(dreamWithEmptyText.dream_text.isEmpty)
         
-        let dreamWithValidText = Dream(dream_date: Date(), dream_text: validText, dream_tags: "")
+        let dreamWithValidText = Dream(dream_date: Date(), dream_text: validText, dream_patterns: "")
         XCTAssertFalse(dreamWithValidText.dream_text.isEmpty)
     }
     
-    func testDreamTagsParsing() throws {
+    func testDreamPatternsParsing() throws {
         // Given
-        let tags = "flying, water, colors"
-        let dream = Dream(dream_date: Date(), dream_text: "Test", dream_tags: tags)
+        let patterns = "flying, water, colors"
+        let dream = Dream(dream_date: Date(), dream_text: "Test", dream_patterns: patterns)
         
         // When
-        let parsedTags = dream.dream_tags.components(separatedBy: ",").map { $0.trimmingCharacters(in: .whitespaces) }
+        let parsedPatterns = dream.dream_patterns.components(separatedBy: ",").map { $0.trimmingCharacters(in: .whitespaces) }
         
         // Then
-        XCTAssertEqual(parsedTags.count, 3)
-        XCTAssertEqual(parsedTags[0], "flying")
-        XCTAssertEqual(parsedTags[1], "water")
-        XCTAssertEqual(parsedTags[2], "colors")
+        XCTAssertEqual(parsedPatterns.count, 3)
+        XCTAssertEqual(parsedPatterns[0], "flying")
+        XCTAssertEqual(parsedPatterns[1], "water")
+        XCTAssertEqual(parsedPatterns[2], "colors")
     }
 } 

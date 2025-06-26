@@ -37,6 +37,7 @@ struct ContentView: View {
                         Text("Tu Diario de Sueños")
                             .font(.title)
                             .fontWeight(.bold)
+                            .foregroundColor(Color(.systemGray))
                         
                         Text("Comienza a registrar tus sueños para descubrir patrones y lograr sueños lúcidos")
                             .multilineTextAlignment(.center)
@@ -73,6 +74,7 @@ struct ContentView: View {
                 }
             }
             .navigationTitle("OMO Dreams")
+            .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 if !dreams.isEmpty {
                     ToolbarItem(placement: .navigationBarTrailing) {
@@ -80,6 +82,7 @@ struct ContentView: View {
                             prepareForNewDream()
                         }) {
                             Image(systemName: "plus")
+                                .foregroundColor(.purple)
                         }
                     }
                 }
@@ -156,20 +159,17 @@ struct DreamRowView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             HStack {
-                Text(dream.dream_date, format: Date.FormatStyle(date: .abbreviated, time: .omitted))
-                    .font(.headline)
-                    .foregroundColor(.purple)
-                
-                Spacer()
-                
                 Text(dream.dream_date, format: Date.FormatStyle(date: .numeric, time: .omitted))
                     .font(.caption)
                     .foregroundColor(.secondary)
+                
+                Spacer()
             }
             
             Text(dream.dream_text)
                 .lineLimit(3)
                 .font(.body)
+                .foregroundColor(Color(.systemGray))
             
             if !dream.dream_tags.isEmpty {
                 HStack {

@@ -1,0 +1,112 @@
+name: iOS CI/CD
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  test:
+    name: Run Tests
+    runs-on: macos-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Select Xcode
+      run: sudo xcode-select -switch /Applications/Xcode_15.2.app
+      
+    - name: Run Unit Tests
+      run: |
+        xcodebuild test \
+          -scheme "OMO Dreams" \
+          -destination 'platform=iOS Simulator,name=iPhone 15,OS=latest' \
+          -enableCodeCoverage YES \
+          | xcpretty
+          
+    - name: Run UI Tests
+      run: |
+        xcodebuild test \
+          -scheme "OMO Dreams" \
+          -destination 'platform=iOS Simulator,name=iPhone 15,OS=latest' \
+          -only-testing:OMODreamsUITests \
+          | xcpretty
+
+  build:
+    name: Build App
+    runs-on: macos-latest
+    needs: test
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Select Xcode
+      run: sudo xcode-select -switch /Applications/Xcode_15.2.app
+      
+    - name: Build for Simulator
+      run: |
+        xcodebuild build \
+          -scheme "OMO Dreams" \
+          -destination 'platform=iOS Simulator,name=iPhone 15,OS=latest' \
+          | xcpretty
+          
+    - name: Build for Device
+      run: |
+        xcodebuild build \
+          -scheme "OMO Dreams" \
+          -destination 'generic/platform=iOS' \
+          | xcpretty
+
+  security:
+    name: Security Check
+    runs-on: macos-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Run SwiftLint (if configured)
+      run: |
+        if command -v swiftlint &> /dev/null; then
+          swiftlint
+        else
+          echo "SwiftLint not installed, skipping..."
+        fi
+        
+    - name: Check for sensitive data
+      run: |
+        # Check for hardcoded API keys, passwords, etc.
+        if grep -r "password\|secret\|key\|token" . --exclude-dir=.git --exclude-dir=DerivedData; then
+          echo "⚠️  Potential sensitive data found in code"
+          exit 1
+        fi
+
+  archive:
+    name: Create Archive
+    runs-on: macos-latest
+    needs: [test, build, security]
+    if: github.ref == 'refs/heads/main'
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Select Xcode
+      run: sudo xcode-select -switch /Applications/Xcode_15.2.app
+      
+    - name: Create Archive
+      run: |
+        xcodebuild archive \
+          -scheme "OMO Dreams" \
+          -archivePath build/OMO_Dreams.xcarchive \
+          -destination 'generic/platform=iOS' \
+          | xcpretty
+          
+    - name: Upload Archive
+      uses: actions/upload-artifact@v3
+      with:
+        name: OMO-Dreams-Archive
+        path: build/OMO_Dreams.xcarchive 

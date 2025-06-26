@@ -141,7 +141,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## 📞 Support
 
-- **Email**: omoconcept@gmail.com
+- **Email**: omopockettool@gmail.com
 - **Issues**: [GitHub Issues](https://github.com/omoconcept/omo-dreams/issues)
 - **Documentation**: [Wiki](https://github.com/omoconcept/omo-dreams/wiki)
 

@@ -7,6 +7,7 @@
 
 import SwiftUI
 import SwiftData
+import Combine
 
 struct ContentView: View {
     @Environment(\.modelContext) private var modelContext
@@ -25,6 +26,14 @@ struct ContentView: View {
             .sorted()
     }
     
+    // Agrupa los sueños por fecha (sin hora)
+    var dreamsByDate: [(date: Date, dreams: [Dream])] {
+        let grouped = Dictionary(grouping: dreams) { dream in
+            Calendar.current.startOfDay(for: dream.dream_date)
+        }
+        return grouped.map { (date: $0.key, dreams: $0.value) }.sorted { $0.date > $1.date }
+    }
+
     var body: some View {
         NavigationView {
             VStack {
@@ -61,20 +70,27 @@ struct ContentView: View {
                     .padding()
                 } else {
                     List {
-                        ForEach(dreams) { dream in
-                            Button(action: {
-                                prepareForEditDream(dream)
-                            }) {
-                                DreamRowView(dream: dream)
+                        ForEach(dreamsByDate, id: \.date) { (date, dreamsForDate) in
+                            Section(header: Text("\(date.formatted(date: .abbreviated, time: .omitted)) (\(dreamsForDate.count))")) {
+                                ForEach(dreamsForDate) { dream in
+                                    Button(action: {
+                                        prepareForEditDream(dream)
+                                    }) {
+                                        DreamRowView(dream: dream)
+                                    }
+                                    .buttonStyle(PlainButtonStyle())
+                                }
+                                .onDelete { offsets in
+                                    let dreamsToDelete = offsets.map { dreamsForDate[$0] }
+                                    deleteDreams(dreamsToDelete)
+                                }
                             }
-                            .buttonStyle(PlainButtonStyle())
                         }
-                        .onDelete(perform: deleteDreams)
                     }
                 }
             }
             .navigationTitle("OMO Dreams")
-            .navigationBarTitleDisplayMode(.inline)
+            .navigationBarTitleDisplayMode(.large)
             .toolbar {
                 if !dreams.isEmpty {
                     ToolbarItem(placement: .navigationBarTrailing) {
@@ -144,10 +160,10 @@ struct ContentView: View {
         }
     }
     
-    private func deleteDreams(offsets: IndexSet) {
+    private func deleteDreams(_ dreamsToDelete: [Dream]) {
         withAnimation {
-            for index in offsets {
-                modelContext.delete(dreams[index])
+            for dream in dreamsToDelete {
+                modelContext.delete(dream)
             }
         }
     }
@@ -158,34 +174,33 @@ struct DreamRowView: View {
     
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
-            HStack {
-                Text(dream.dream_date, format: Date.FormatStyle(date: .numeric, time: .omitted))
-                    .font(.caption)
-                    .foregroundColor(.secondary)
-                
-                Spacer()
-            }
-            
             Text(dream.dream_text)
-            .lineLimit(3)
+                .lineLimit(8)
                 .font(.body)
                 .foregroundColor(Color(.systemGray))
+                .frame(minHeight: 40, alignment: .top)
             
             if !dream.dream_patterns.isEmpty {
-                HStack {
-                    ForEach(dream.dream_patterns.components(separatedBy: ",").map { $0.trimmingCharacters(in: .whitespaces) }, id: \.self) { pattern in
-                        Text(pattern)
-                            .font(.caption)
-                            .padding(.horizontal, 8)
-                            .padding(.vertical, 4)
-                            .background(Color.purple.opacity(0.2))
-                            .foregroundColor(.purple)
-                            .cornerRadius(8)
+                let patterns = dream.dream_patterns.components(separatedBy: ",").map { $0.trimmingCharacters(in: .whitespaces) }.filter { !$0.isEmpty }
+                VStack(alignment: .leading, spacing: 8) {
+                    ForEach(Array(patterns.chunked(into: 4).enumerated()), id: \.offset) { rowIndex, row in
+                        HStack(spacing: 8) {
+                            ForEach(row, id: \.self) { pattern in
+                                Text(pattern)
+                                    .font(.caption)
+                                    .padding(.horizontal, 8)
+                                    .padding(.vertical, 4)
+                                    .background(Color.purple.opacity(0.2))
+                                    .foregroundColor(.purple)
+                                    .cornerRadius(8)
+                            }
+                            Spacer()
+                        }
                     }
                 }
             }
         }
-        .padding(.vertical, 4)
+        .padding(.vertical, 0)
     }
 }
 
@@ -200,78 +215,210 @@ struct AddDreamSheet: View {
     
     @State private var selectedSuggestion: String? = nil
     @State private var showDatePicker: Bool = false
-    @FocusState private var isTextFieldFocused: Bool
+    @FocusState private var focusedField: Field?
+    @State private var patternInput: String = ""
+    @State private var patternChips: [String] = []
+    
+    enum Field {
+        case description
+        case patterns
+    }
     
     var currentPatternFragment: String {
-        let parts = dreamPatterns.components(separatedBy: ",")
+        let parts = patternInput.components(separatedBy: ",")
         return parts.last?.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() ?? ""
     }
     var patternSuggestions: [String] {
         guard !currentPatternFragment.isEmpty else { return [] }
-        return allPatterns.filter { $0.hasPrefix(currentPatternFragment) && !dreamPatterns.lowercased().contains($0) }
+        return allPatterns.filter { $0.hasPrefix(currentPatternFragment) && !patternChips.contains($0) }
+    }
+    
+    func addPatternFromInput() {
+        let trimmedPattern = patternInput.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        guard !trimmedPattern.isEmpty, !patternChips.contains(trimmedPattern) else { return }
+        
+        patternChips.append(trimmedPattern)
+        patternInput = ""  // ✅ limpia el campo después de agregar
+        dreamPatterns = patternChips.joined(separator: ", ")  // ✅ actualiza el campo sincronizado
+    }
+        
+    func removePattern(_ pattern: String) {
+        patternChips.removeAll { $0 == pattern }
+        dreamPatterns = patternChips.joined(separator: ", ")
     }
     
     var body: some View {
         NavigationView {
-            Form {
-                Section(header: Text("Describe tu sueño")) {
-                    TextEditor(text: $dreamText)
-                        .frame(minHeight: 300, maxHeight: 400)
-                        .padding(4)
-                        .focused($isTextFieldFocused)
-                }
-                Section(header: Text("Patrones")) {
-                    VStack(alignment: .leading, spacing: 4) {
-                        TextEditor(text: $dreamPatterns)
-                            .frame(minHeight: 80, maxHeight: 120)
-                            .padding(4)
-                            .textInputAutocapitalization(.never)
-                            .focused($isTextFieldFocused)
-                        if !patternSuggestions.isEmpty {
-                            ScrollView(.horizontal, showsIndicators: false) {
-                                HStack(spacing: 8) {
-                                    ForEach(patternSuggestions, id: \.self) { suggestion in
-                                        Button(action: {
-                                            autocompletePattern(suggestion)
-                                        }) {
-                                            Text(suggestion)
-                                                .font(.caption)
-                                                .padding(.horizontal, 12)
-                                                .padding(.vertical, 8)
-                                                .background(Color.purple.opacity(0.2))
-                                                .foregroundColor(.purple)
-                                                .cornerRadius(8)
+            ScrollViewReader { proxy in
+                ScrollView {
+                    VStack(spacing: 20) {
+                        // Sección: Describe tu sueño
+                        VStack(alignment: .leading, spacing: 8) {
+                            Text("Describe tu sueño")
+                                .font(.headline)
+                                .foregroundColor(.primary)
+                            
+                            TextEditor(text: $dreamText)
+                                .frame(minHeight: 300, maxHeight: 400)
+                                .padding(8)
+                                .background(Color(.systemGray6))
+                                .cornerRadius(8)
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: 8)
+                                        .stroke(Color(.systemGray4), lineWidth: 1)
+                                )
+                                .focused($focusedField, equals: .description)
+                        }
+                        .padding(.horizontal)
+                        
+                        // Sección: Patrones
+                        VStack(alignment: .leading, spacing: 8) {
+                            Text("Patrones")
+                                .font(.headline)
+                                .foregroundColor(.primary)
+                            
+                            VStack(alignment: .leading, spacing: 4) {
+                                HStack {
+                                    TextField("Añade un patrón", text: $patternInput)
+                                        .textInputAutocapitalization(.never)
+                                        .focused($focusedField, equals: .patterns)
+                                        .onSubmit {
+                                            focusedField = .patterns
+                                            addPatternFromInput()  // ✅ enter también agrega el patrón
                                         }
+                                }
+                                .padding(8)
+                                .background(Color(.systemGray6))
+                                .cornerRadius(8)
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: 8)
+                                        .stroke(Color(.systemGray4), lineWidth: 1)
+                                )
+                                
+                                // Autocomplete suggestions right below input
+                                if !patternSuggestions.isEmpty {
+                                    ScrollView(.horizontal, showsIndicators: false) {
+                                        HStack(spacing: 8) {
+                                            ForEach(patternSuggestions, id: \.self) { suggestion in
+                                                Button(action: {
+                                                    patternInput = suggestion
+                                                    addPatternFromInput()
+                                                }) {
+                                                    Text(suggestion)
+                                                        .font(.caption)
+                                                        .padding(.horizontal, 12)
+                                                        .padding(.vertical, 8)
+                                                        .background(Color.purple.opacity(0.2))
+                                                        .foregroundColor(.purple)
+                                                        .cornerRadius(8)
+                                                }
+                                            }
+                                        }
+                                        .padding(.vertical, 4)
                                     }
                                 }
-                                .padding(.vertical, 4)
+                                
+                                // Chips organizados en filas de 4
+                                if !patternChips.isEmpty {
+                                    VStack(alignment: .leading, spacing: 8) {
+                                        ForEach(Array(patternChips.chunked(into: 4).enumerated()), id: \.offset) { rowIndex, row in
+                                            HStack(spacing: 8) {
+                                                ForEach(row, id: \.self) { pattern in
+                                                    HStack(spacing: 4) {
+                                                        Text(pattern)
+                                                            .font(.caption)
+                                                            .padding(.horizontal, 8)
+                                                            .padding(.vertical, 4)
+                                                            .background(Color.purple.opacity(0.2))
+                                                            .foregroundColor(.purple)
+                                                            .cornerRadius(8)
+                                                        Button(action: { removePattern(pattern) }) {
+                                                            Image(systemName: "xmark.circle.fill")
+                                                                .font(.caption)
+                                                                .foregroundColor(.purple)
+                                                        }
+                                                    }
+                                                }
+                                                Spacer()
+                                            }
+                                        }
+                                    }
+                                    .padding(.vertical, 8)
+                                    .id("patternChips") // ID para ScrollViewReader
+                                }
                             }
-                            .padding(.bottom, 24)
-                        } else {
-                            Spacer(minLength: 24)
                         }
+                        .padding(.horizontal)
+                        
+                        // Sección: Fecha
+                        VStack(alignment: .leading, spacing: 8) {
+                            Button(action: { showDatePicker.toggle() }) {
+                                HStack {
+                                    Image(systemName: "calendar")
+                                        .foregroundColor(.purple)
+                                    Text("Fecha: " + dreamDate.formatted(date: .abbreviated, time: .omitted))
+                                        .foregroundColor(.primary)
+                                    Spacer()
+                                    Text("(cambiar)")
+                                        .font(.caption)
+                                        .foregroundColor(.purple)
+                                }
+                                .padding()
+                                .background(Color(.systemGray6))
+                                .cornerRadius(8)
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: 8)
+                                        .stroke(Color(.systemGray4), lineWidth: 1)
+                                )
+                            }
+                            .buttonStyle(PlainButtonStyle())
+                            
+                            if showDatePicker {
+                                DatePicker("Selecciona la fecha", selection: $dreamDate, displayedComponents: .date)
+                                    .datePickerStyle(.graphical)
+                                    .labelsHidden()
+                                    .padding()
+                                    .background(Color(.systemGray6))
+                                    .cornerRadius(8)
+                                    .overlay(
+                                        RoundedRectangle(cornerRadius: 8)
+                                            .stroke(Color(.systemGray4), lineWidth: 1)
+                                    )
+                            }
+                        }
+                        .padding(.horizontal)
                     }
-                    .padding(.bottom, 8)
+                    .padding(.vertical)
                 }
-                Section {
-                    Button(action: { showDatePicker.toggle() }) {
-                        HStack {
-                            Image(systemName: "calendar")
-                                .foregroundColor(.purple)
-                            Text("Fecha: " + dreamDate.formatted(date: .abbreviated, time: .omitted))
-                                .foregroundColor(.primary)
-                            Spacer()
-                            Text("(cambiar)")
-                                .font(.caption)
-                                .foregroundColor(.purple)
+                .onChange(of: patternChips.count) { _, newCount in
+                    // Scroll hacia los chips cuando se añade uno nuevo
+                    if newCount > 0 {
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                            withAnimation(.easeInOut(duration: 0.3)) {
+                                proxy.scrollTo("patternChips", anchor: .bottom)
+                            }
                         }
                     }
-                    .buttonStyle(PlainButtonStyle())
-                    if showDatePicker {
-                        DatePicker("Selecciona la fecha", selection: $dreamDate, displayedComponents: .date)
-                            .datePickerStyle(.graphical)
-                            .labelsHidden()
-                            .padding(.top, 4)
+                }
+            }
+            .toolbar {
+                ToolbarItemGroup(placement: .keyboard) {
+                    HStack {
+                        Button("↑") {
+                            focusedField = .description
+                        }
+                        .disabled(focusedField == .description)
+                        
+                        Button("↓") {
+                            focusedField = .patterns
+                        }
+                        .disabled(focusedField == .patterns)
+                        
+                        Spacer()
+                        
+                        Button("Done") {
+                            focusedField = nil
+                        }
                     }
                 }
             }
@@ -283,28 +430,30 @@ struct AddDreamSheet: View {
                         isPresented = false
                         dreamText = ""
                         dreamPatterns = ""
+                        patternChips = []
+                        patternInput = ""
                     }
                 }
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Guardar") {
+                        addPatternFromInput()  // ✅ agrega lo que esté en el input antes de guardar
+                        dreamPatterns = patternChips.joined(separator: ", ")
                         onSave()
                         isPresented = false
                     }
-                    .disabled(dreamText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
                 }
             }
-            .onTapGesture {
-                isTextFieldFocused = false
+            .onAppear {
+                // Inicializar patternChips desde dreamPatterns
+                if !dreamPatterns.isEmpty {
+                    let initial = dreamPatterns.split(separator: ",").map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }.filter { !$0.isEmpty }
+                    patternChips = initial
+                } else {
+                    patternChips = []
+                }
             }
-        }
-    }
-    private func autocompletePattern(_ pattern: String) {
-        var parts = dreamPatterns.components(separatedBy: ",")
-        if parts.isEmpty {
-            dreamPatterns = pattern
-        } else {
-            parts[parts.count - 1] = " " + pattern
-            dreamPatterns = parts.joined(separator: ",").replacingOccurrences(of: ", ,", with: ", ")
+            .onChange(of: dreamPatterns) { _, newValue in
+            }
         }
     }
 }
@@ -312,4 +461,16 @@ struct AddDreamSheet: View {
 #Preview {
     ContentView()
         .modelContainer(for: Dream.self, inMemory: true)
+}
+
+// Extensión para dividir arrays en chunks
+extension Array {
+    func chunked(into size: Int) -> [[Element]] {
+        guard size > 0 else { return [] }
+
+        return stride(from: 0, to: count, by: size).map { startIndex in
+            let endIndex = Swift.min(startIndex + size, count)
+            return Array(self[startIndex..<endIndex])
+        }
+    }
 }

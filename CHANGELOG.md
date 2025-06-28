@@ -5,6 +5,51 @@ All notable changes to OMO Dreams will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.0.3] - 2025-06-26
+
+### Added
+- **Enhanced Pattern Chips System**: 
+  - Visual chip-based pattern input with remove functionality
+  - Real-time pattern suggestions with horizontal scrolling
+  - Automatic pattern addition on Enter key press
+  - Improved pattern input field with better UX
+
+### Changed
+- **Pattern Input Experience**:
+  - Moved autocomplete suggestions above pattern chips for better visibility
+  - Implemented horizontal wrapping for pattern chips (4 per row)
+  - Added immediate scroll-to-view when adding new patterns
+  - Enhanced pattern chip layout with proper spacing and organization
+- **Dream List Display**:
+  - Fixed pattern display in dream list to wrap horizontally instead of vertical stacking
+  - Consistent pattern chip styling across list and input views
+  - Improved readability with proper row-based layout
+- **Input Field Behavior**:
+  - Better focus management between description and pattern fields
+  - Improved keyboard navigation with up/down buttons
+  - Enhanced pattern initialization when editing existing dreams
+- **Visual Consistency**:
+  - Unified pattern chip design across all views
+  - Consistent purple color scheme for patterns
+  - Better visual hierarchy in pattern sections
+
+### Fixed
+- **Pattern Display Issues**:
+  - Resolved vertical stacking of patterns in dream list
+  - Fixed pattern chips not showing immediately when editing dreams
+  - Corrected pattern parsing consistency across the app
+- **User Experience**:
+  - Fixed scroll behavior when adding first pattern
+  - Resolved pattern chip visibility issues in edit mode
+  - Improved pattern input field responsiveness
+
+### Technical
+- **Code Improvements**:
+  - Added Array extension for chunking patterns into rows
+  - Enhanced state management for pattern chips
+  - Improved pattern parsing and validation
+  - Better ScrollViewReader integration for smooth scrolling
+
 ## [0.0.2] - 2025-06-26
 
 ### Added

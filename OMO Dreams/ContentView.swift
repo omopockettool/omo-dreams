@@ -12,21 +12,21 @@ import Combine
 struct ContentView: View {
     @Environment(\.modelContext) private var modelContext
     @Query(sort: \Dream.dream_date, order: .reverse) private var dreams: [Dream]
+    @Query private var patterns: [Pattern]
     
     @State private var showingAddDream = false
     @State private var dreamText = ""
-    @State private var dreamPatterns = ""
     @State private var dreamDate = Date()
+    @State private var isLucid = false
     @State private var editingDream: Dream? = nil
+    @State private var selectedPatterns: [PatternSelection] = []
     
-    // Computed property: all unique patterns in lowercased, sorted
-    var allPatterns: [String] {
-        Set(dreams.flatMap { $0.dream_patterns.components(separatedBy: ",").map { $0.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() } })
-            .filter { !$0.isEmpty }
-            .sorted()
+    // Computed property: all unique patterns sorted by label
+    var allPatterns: [Pattern] {
+        patterns.sorted { $0.label < $1.label }
     }
     
-    // Agrupa los sueños por fecha (sin hora)
+    // Group dreams by date (without time)
     var dreamsByDate: [(date: Date, dreams: [Dream])] {
         let grouped = Dictionary(grouping: dreams) { dream in
             Calendar.current.startOfDay(for: dream.dream_date)
@@ -107,10 +107,11 @@ struct ContentView: View {
                 AddDreamSheet(
                     isPresented: $showingAddDream,
                     dreamText: $dreamText,
-                    dreamPatterns: $dreamPatterns,
                     dreamDate: $dreamDate,
-                    isEditing: editingDream != nil,
+                    isLucid: $isLucid,
+                    selectedPatterns: $selectedPatterns,
                     allPatterns: allPatterns,
+                    isEditing: editingDream != nil,
                     onSave: {
                         if let editingDream = editingDream {
                             updateDream(editingDream)
@@ -125,16 +126,27 @@ struct ContentView: View {
     
     private func prepareForNewDream() {
         dreamText = ""
-        dreamPatterns = ""
         dreamDate = Calendar.current.startOfDay(for: Date())
+        isLucid = false
+        selectedPatterns = []
         editingDream = nil
         showingAddDream = true
     }
     
     private func prepareForEditDream(_ dream: Dream) {
         dreamText = dream.dream_text
-        dreamPatterns = dream.dream_patterns
         dreamDate = dream.dream_date
+        isLucid = dream.isLucid
+        
+        // Convert existing dream patterns to selection format
+        selectedPatterns = dream.dreamPatterns.compactMap { dreamPattern in
+            guard let pattern = dreamPattern.pattern else { return nil }
+            return PatternSelection(
+                pattern: pattern,
+                isRecognitionClue: dreamPattern.isRecognitionClue
+            )
+        }
+        
         editingDream = dream
         showingAddDream = true
     }
@@ -144,11 +156,23 @@ struct ContentView: View {
             let newDream = Dream(
                 dream_date: dreamDate,
                 dream_text: dreamText,
-                dream_patterns: dreamPatterns
+                isLucid: isLucid
             )
             modelContext.insert(newDream)
+            
+            // Add patterns
+            for patternSelection in selectedPatterns {
+                let dreamPattern = DreamPattern(
+                    dreamId: newDream.id,
+                    pattern: patternSelection.pattern,
+                    isRecognitionClue: patternSelection.isRecognitionClue
+                )
+                dreamPattern.dream = newDream
+                modelContext.insert(dreamPattern)
+            }
+            
             dreamText = ""
-            dreamPatterns = ""
+            selectedPatterns = []
         }
     }
     
@@ -156,7 +180,23 @@ struct ContentView: View {
         withAnimation {
             dream.dream_date = dreamDate
             dream.dream_text = dreamText
-            dream.dream_patterns = dreamPatterns
+            dream.isLucid = isLucid
+            
+            // Remove existing patterns
+            for dreamPattern in dream.dreamPatterns {
+                modelContext.delete(dreamPattern)
+            }
+            
+            // Add new patterns
+            for patternSelection in selectedPatterns {
+                let dreamPattern = DreamPattern(
+                    dreamId: dream.id,
+                    pattern: patternSelection.pattern,
+                    isRecognitionClue: patternSelection.isRecognitionClue
+                )
+                dreamPattern.dream = dream
+                modelContext.insert(dreamPattern)
+            }
         }
     }
     
@@ -174,24 +214,34 @@ struct DreamRowView: View {
     
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text(dream.dream_text)
-                .lineLimit(8)
-                .font(.body)
-                .foregroundColor(Color(.systemGray))
-                .frame(minHeight: 40, alignment: .top)
+            HStack {
+                Text(dream.dream_text)
+                    .lineLimit(8)
+                    .font(.body)
+                    .foregroundColor(Color(.systemGray))
+                    .frame(minHeight: 40, alignment: .top)
+                
+                Spacer()
+                
+                if dream.isLucid {
+                    Image(systemName: "eye.fill")
+                        .foregroundColor(.purple)
+                        .font(.caption)
+                }
+            }
             
-            if !dream.dream_patterns.isEmpty {
-                let patterns = dream.dream_patterns.components(separatedBy: ",").map { $0.trimmingCharacters(in: .whitespaces) }.filter { !$0.isEmpty }
+            if !dream.dreamPatterns.isEmpty {
+                let patterns = dream.dreamPatterns.compactMap { $0.pattern }
                 VStack(alignment: .leading, spacing: 8) {
                     ForEach(Array(patterns.chunked(into: 4).enumerated()), id: \.offset) { rowIndex, row in
                         HStack(spacing: 8) {
-                            ForEach(row, id: \.self) { pattern in
-                                Text(pattern)
+                            ForEach(row, id: \.label) { pattern in
+                                Text(pattern.label)
                                     .font(.caption)
                                     .padding(.horizontal, 8)
                                     .padding(.vertical, 4)
-                                    .background(Color.purple.opacity(0.2))
-                                    .foregroundColor(.purple)
+                                    .background(categoryColor(for: pattern.category))
+                                    .foregroundColor(.white)
                                     .cornerRadius(8)
                             }
                             Spacer()
@@ -202,49 +252,86 @@ struct DreamRowView: View {
         }
         .padding(.vertical, 0)
     }
+    
+    private func categoryColor(for category: String) -> Color {
+        switch category {
+        case "action": return .blue
+        case "place": return .green
+        case "character": return .orange
+        case "object": return .purple
+        case "emotion": return .red
+        case "color": return .pink
+        case "sound": return .indigo
+        default: return .gray
+        }
+    }
+}
+
+struct PatternSelection: Identifiable, Equatable {
+    let id = UUID()
+    let pattern: Pattern
+    var isRecognitionClue: Bool
+    
+    static func == (lhs: PatternSelection, rhs: PatternSelection) -> Bool {
+        lhs.pattern.label == rhs.pattern.label
+    }
 }
 
 struct AddDreamSheet: View {
+    @Environment(\.modelContext) private var modelContext
     @Binding var isPresented: Bool
     @Binding var dreamText: String
-    @Binding var dreamPatterns: String
     @Binding var dreamDate: Date
+    @Binding var isLucid: Bool
+    @Binding var selectedPatterns: [PatternSelection]
+    var allPatterns: [Pattern]
     var isEditing: Bool = false
-    var allPatterns: [String] = []
     var onSave: () -> Void
     
-    @State private var selectedSuggestion: String? = nil
     @State private var showDatePicker: Bool = false
-    @FocusState private var focusedField: Field?
     @State private var patternInput: String = ""
-    @State private var patternChips: [String] = []
+    @State private var selectedCategory: PatternCategory = .other
+    @FocusState private var focusedField: Field?
     
     enum Field {
         case description
         case patterns
     }
     
-    var currentPatternFragment: String {
-        let parts = patternInput.components(separatedBy: ",")
-        return parts.last?.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() ?? ""
-    }
-    var patternSuggestions: [String] {
-        guard !currentPatternFragment.isEmpty else { return [] }
-        return allPatterns.filter { $0.hasPrefix(currentPatternFragment) && !patternChips.contains($0) }
+    var patternSuggestions: [Pattern] {
+        guard !patternInput.isEmpty else { return [] }
+        return allPatterns.filter { pattern in
+            pattern.label.lowercased().contains(patternInput.lowercased()) && 
+            !selectedPatterns.contains(where: { $0.pattern.label == pattern.label })
+        }
     }
     
     func addPatternFromInput() {
         let trimmedPattern = patternInput.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
-        guard !trimmedPattern.isEmpty, !patternChips.contains(trimmedPattern) else { return }
+        guard !trimmedPattern.isEmpty else { return }
         
-        patternChips.append(trimmedPattern)
-        patternInput = ""  // ✅ limpia el campo después de agregar
-        dreamPatterns = patternChips.joined(separator: ", ")  // ✅ actualiza el campo sincronizado
+        // Check if pattern already exists
+        if let existingPattern = allPatterns.first(where: { $0.label.lowercased() == trimmedPattern }) {
+            if !selectedPatterns.contains(where: { $0.pattern.label == existingPattern.label }) {
+                selectedPatterns.append(PatternSelection(pattern: existingPattern, isRecognitionClue: false))
+            }
+        } else {
+            // Create new pattern
+            let newPattern = Pattern(label: trimmedPattern, category: selectedCategory.rawValue)
+            selectedPatterns.append(PatternSelection(pattern: newPattern, isRecognitionClue: false))
+        }
+        
+        patternInput = ""
     }
         
-    func removePattern(_ pattern: String) {
-        patternChips.removeAll { $0 == pattern }
-        dreamPatterns = patternChips.joined(separator: ", ")
+    func removePattern(_ patternSelection: PatternSelection) {
+        selectedPatterns.removeAll { $0.id == patternSelection.id }
+    }
+    
+    func toggleRecognitionClue(_ patternSelection: PatternSelection) {
+        if let index = selectedPatterns.firstIndex(where: { $0.id == patternSelection.id }) {
+            selectedPatterns[index].isRecognitionClue.toggle()
+        }
     }
     
     var body: some View {
@@ -252,7 +339,7 @@ struct AddDreamSheet: View {
             ScrollViewReader { proxy in
                 ScrollView {
                     VStack(spacing: 20) {
-                        // Sección: Describe tu sueño
+                        // Dream Description Section
                         VStack(alignment: .leading, spacing: 8) {
                             Text("Describe tu sueño")
                                 .font(.headline)
@@ -271,7 +358,7 @@ struct AddDreamSheet: View {
                         }
                         .padding(.horizontal)
                         
-                        // Sección: Patrones
+                        // Patterns Section
                         VStack(alignment: .leading, spacing: 8) {
                             Text("Patrones")
                                 .font(.headline)
@@ -284,8 +371,16 @@ struct AddDreamSheet: View {
                                         .focused($focusedField, equals: .patterns)
                                         .onSubmit {
                                             focusedField = .patterns
-                                            addPatternFromInput()  // ✅ enter también agrega el patrón
+                                            addPatternFromInput()
                                         }
+                                    
+                                    Picker("Categoría", selection: $selectedCategory) {
+                                        ForEach(PatternCategory.allCases, id: \.self) { category in
+                                            Text(category.displayName).tag(category)
+                                        }
+                                    }
+                                    .pickerStyle(MenuPickerStyle())
+                                    .accentColor(.purple)
                                 }
                                 .padding(8)
                                 .background(Color(.systemGray6))
@@ -295,16 +390,16 @@ struct AddDreamSheet: View {
                                         .stroke(Color(.systemGray4), lineWidth: 1)
                                 )
                                 
-                                // Autocomplete suggestions right below input
+                                // Autocomplete suggestions
                                 if !patternSuggestions.isEmpty {
                                     ScrollView(.horizontal, showsIndicators: false) {
                                         HStack(spacing: 8) {
-                                            ForEach(patternSuggestions, id: \.self) { suggestion in
+                                            ForEach(patternSuggestions, id: \.label) { suggestion in
                                                 Button(action: {
-                                                    patternInput = suggestion
+                                                    patternInput = suggestion.label
                                                     addPatternFromInput()
                                                 }) {
-                                                    Text(suggestion)
+                                                    Text(suggestion.label)
                                                         .font(.caption)
                                                         .padding(.horizontal, 12)
                                                         .padding(.vertical, 8)
@@ -318,24 +413,25 @@ struct AddDreamSheet: View {
                                     }
                                 }
                                 
-                                // Chips organizados en filas de 4
-                                if !patternChips.isEmpty {
+                                // Selected patterns
+                                if !selectedPatterns.isEmpty {
                                     VStack(alignment: .leading, spacing: 8) {
-                                        ForEach(Array(patternChips.chunked(into: 4).enumerated()), id: \.offset) { rowIndex, row in
+                                        ForEach(Array(selectedPatterns.chunked(into: 4).enumerated()), id: \.offset) { rowIndex, row in
                                             HStack(spacing: 8) {
-                                                ForEach(row, id: \.self) { pattern in
+                                                ForEach(row, id: \.id) { patternSelection in
                                                     HStack(spacing: 4) {
-                                                        Text(pattern)
+                                                        Text(patternSelection.pattern.label)
                                                             .font(.caption)
                                                             .padding(.horizontal, 8)
                                                             .padding(.vertical, 4)
-                                                            .background(Color.purple.opacity(0.2))
-                                                            .foregroundColor(.purple)
+                                                            .background(categoryColor(for: patternSelection.pattern.category))
+                                                            .foregroundColor(.white)
                                                             .cornerRadius(8)
-                                                        Button(action: { removePattern(pattern) }) {
+                                                        
+                                                        Button(action: { removePattern(patternSelection) }) {
                                                             Image(systemName: "xmark.circle.fill")
                                                                 .font(.caption)
-                                                                .foregroundColor(.purple)
+                                                                .foregroundColor(.red)
                                                         }
                                                     }
                                                 }
@@ -344,13 +440,35 @@ struct AddDreamSheet: View {
                                         }
                                     }
                                     .padding(.vertical, 8)
-                                    .id("patternChips") // ID para ScrollViewReader
+                                    .id("patternChips")
                                 }
                             }
                         }
                         .padding(.horizontal)
                         
-                        // Sección: Fecha
+                        // Lucid Dream Toggle
+                        VStack(alignment: .leading, spacing: 8) {
+                            HStack {
+                                Image(systemName: "eye.fill")
+                                    .foregroundColor(.purple)
+                                Text("Sueño Lúcido")
+                                    .font(.headline)
+                                    .foregroundColor(.primary)
+                                Spacer()
+                                Toggle("", isOn: $isLucid)
+                                    .toggleStyle(SwitchToggleStyle(tint: .purple))
+                            }
+                            .padding()
+                            .background(Color(.systemGray6))
+                            .cornerRadius(8)
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 8)
+                                    .stroke(Color(.systemGray4), lineWidth: 1)
+                            )
+                        }
+                        .padding(.horizontal)
+                        
+                        // Date Section
                         VStack(alignment: .leading, spacing: 8) {
                             Button(action: { showDatePicker.toggle() }) {
                                 HStack {
@@ -390,8 +508,7 @@ struct AddDreamSheet: View {
                     }
                     .padding(.vertical)
                 }
-                .onChange(of: patternChips.count) { _, newCount in
-                    // Scroll hacia los chips cuando se añade uno nuevo
+                .onChange(of: selectedPatterns.count) { _, newCount in
                     if newCount > 0 {
                         DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
                             withAnimation(.easeInOut(duration: 0.3)) {
@@ -404,13 +521,21 @@ struct AddDreamSheet: View {
             .toolbar {
                 ToolbarItemGroup(placement: .keyboard) {
                     HStack {
-                        Button("↑") {
+                        Button(action: {
                             focusedField = .description
+                        }) {
+                            Image(systemName: "chevron.up.circle.fill")
+                                .font(.title2)
+                                .foregroundColor(.purple)
                         }
                         .disabled(focusedField == .description)
                         
-                        Button("↓") {
+                        Button(action: {
                             focusedField = .patterns
+                        }) {
+                            Image(systemName: "chevron.down.circle.fill")
+                                .font(.title2)
+                                .foregroundColor(.purple)
                         }
                         .disabled(focusedField == .patterns)
                         
@@ -419,6 +544,8 @@ struct AddDreamSheet: View {
                         Button("Done") {
                             focusedField = nil
                         }
+                        .foregroundColor(.purple)
+                        .fontWeight(.semibold)
                     }
                 }
             }
@@ -429,41 +556,47 @@ struct AddDreamSheet: View {
                     Button("Cancelar") {
                         isPresented = false
                         dreamText = ""
-                        dreamPatterns = ""
-                        patternChips = []
+                        selectedPatterns = []
                         patternInput = ""
                     }
+                    .foregroundColor(.purple)
                 }
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Guardar") {
-                        addPatternFromInput()  // ✅ agrega lo que esté en el input antes de guardar
-                        dreamPatterns = patternChips.joined(separator: ", ")
+                        addPatternFromInput()
                         onSave()
                         isPresented = false
                     }
+                    .foregroundColor(.purple)
+                    .fontWeight(.semibold)
                 }
             }
-            .onAppear {
-                // Inicializar patternChips desde dreamPatterns
-                if !dreamPatterns.isEmpty {
-                    let initial = dreamPatterns.split(separator: ",").map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }.filter { !$0.isEmpty }
-                    patternChips = initial
-                } else {
-                    patternChips = []
-                }
-            }
-            .onChange(of: dreamPatterns) { _, newValue in
-            }
+
+        }
+    }
+    
+    private func categoryColor(for category: String) -> Color {
+        switch category {
+        case "action": return .blue
+        case "place": return .green
+        case "character": return .orange
+        case "object": return .purple
+        case "emotion": return .red
+        case "color": return .pink
+        case "sound": return .indigo
+        default: return .gray
         }
     }
 }
 
+
+
 #Preview {
     ContentView()
-        .modelContainer(for: Dream.self, inMemory: true)
+        .modelContainer(for: [Dream.self, DreamPattern.self, Pattern.self], inMemory: true)
 }
 
-// Extensión para dividir arrays en chunks
+// Extension to split arrays into chunks
 extension Array {
     func chunked(into size: Int) -> [[Element]] {
         guard size > 0 else { return [] }

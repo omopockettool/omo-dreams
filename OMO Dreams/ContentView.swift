@@ -26,12 +26,13 @@ struct ContentView: View {
         patterns.sorted { $0.label < $1.label }
     }
     
-    // Group dreams by date (without time)
-    var dreamsByDate: [(date: Date, dreams: [Dream])] {
+    // Group dreams by date (without time) with stable section identifiers
+    var dreamsByDate: [(date: Date, dreams: [Dream], sectionId: String)] {
         let grouped = Dictionary(grouping: dreams) { dream in
             Calendar.current.startOfDay(for: dream.dream_date)
         }
-        return grouped.map { (date: $0.key, dreams: $0.value) }.sorted { $0.date > $1.date }
+        return grouped.map { (date: $0.key, dreams: $0.value, sectionId: DateFormatter.sectionFormatter.string(from: $0.key)) }
+            .sorted { $0.date > $1.date }
     }
 
     var body: some View {
@@ -70,15 +71,19 @@ struct ContentView: View {
                     .padding()
                 } else {
                     List {
-                        ForEach(dreamsByDate, id: \.date) { (date, dreamsForDate) in
+                        ForEach(dreamsByDate, id: \.sectionId) { (date, dreamsForDate, sectionId) in
                             Section(header: Text("\(date.formatted(date: .abbreviated, time: .omitted)) (\(dreamsForDate.count))")) {
-                                ForEach(dreamsForDate) { dream in
+                                ForEach(dreamsForDate, id: \.id) { dream in
                                     Button(action: {
                                         prepareForEditDream(dream)
                                     }) {
                                         DreamRowView(dream: dream)
                                     }
                                     .buttonStyle(PlainButtonStyle())
+                                    .transition(.asymmetric(
+                                        insertion: .move(edge: .leading).combined(with: .opacity),
+                                        removal: .move(edge: .trailing).combined(with: .opacity)
+                                    ))
                                 }
                                 .onDelete { offsets in
                                     let dreamsToDelete = offsets.map { dreamsForDate[$0] }
@@ -87,6 +92,7 @@ struct ContentView: View {
                             }
                         }
                     }
+                    .animation(.easeInOut(duration: 0.3), value: dreamsByDate.map { $0.sectionId })
                 }
             }
             .navigationTitle("OMO Dreams")
@@ -152,7 +158,7 @@ struct ContentView: View {
     }
     
     private func addDream() {
-        withAnimation {
+        withAnimation(.easeInOut(duration: 0.4)) {
             let newDream = Dream(
                 dream_date: dreamDate,
                 dream_text: dreamText,
@@ -177,7 +183,7 @@ struct ContentView: View {
     }
     
     private func updateDream(_ dream: Dream) {
-        withAnimation {
+        withAnimation(.easeInOut(duration: 0.3)) {
             dream.dream_date = dreamDate
             dream.dream_text = dreamText
             dream.isLucid = isLucid
@@ -201,7 +207,7 @@ struct ContentView: View {
     }
     
     private func deleteDreams(_ dreamsToDelete: [Dream]) {
-        withAnimation {
+        withAnimation(.easeInOut(duration: 0.35)) {
             for dream in dreamsToDelete {
                 modelContext.delete(dream)
             }
@@ -235,7 +241,7 @@ struct DreamRowView: View {
                 VStack(alignment: .leading, spacing: 8) {
                     ForEach(Array(patterns.chunked(into: 4).enumerated()), id: \.offset) { rowIndex, row in
                         HStack(spacing: 8) {
-                            ForEach(row, id: \.label) { pattern in
+                            ForEach(Array(row.enumerated()), id: \.offset) { idx, pattern in
                                 Text(pattern.label)
                                     .font(.caption)
                                     .padding(.horizontal, 8)
@@ -346,7 +352,7 @@ struct AddDreamSheet: View {
                                 .foregroundColor(.primary)
                             
                             TextEditor(text: $dreamText)
-                                .frame(minHeight: 300, maxHeight: 400)
+                                .frame(minHeight: max(300, 0), maxHeight: max(400, 300))
                                 .padding(8)
                                 .background(Color(.systemGray6))
                                 .cornerRadius(8)
@@ -418,7 +424,7 @@ struct AddDreamSheet: View {
                                     VStack(alignment: .leading, spacing: 8) {
                                         ForEach(Array(selectedPatterns.chunked(into: 4).enumerated()), id: \.offset) { rowIndex, row in
                                             HStack(spacing: 8) {
-                                                ForEach(row, id: \.id) { patternSelection in
+                                                ForEach(Array(row.enumerated()), id: \.offset) { idx, patternSelection in
                                                     HStack(spacing: 4) {
                                                         Text(patternSelection.pattern.label)
                                                             .font(.caption)
@@ -510,8 +516,8 @@ struct AddDreamSheet: View {
                 }
                 .onChange(of: selectedPatterns.count) { _, newCount in
                     if newCount > 0 {
-                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                            withAnimation(.easeInOut(duration: 0.3)) {
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                            withAnimation(.easeInOut(duration: 0.2)) {
                                 proxy.scrollTo("patternChips", anchor: .bottom)
                             }
                         }
@@ -524,7 +530,7 @@ struct AddDreamSheet: View {
                         Button(action: {
                             focusedField = .description
                         }) {
-                            Image(systemName: "chevron.up.circle.fill")
+                            Image(systemName: "chevron.up")
                                 .font(.title2)
                                 .foregroundColor(.purple)
                         }
@@ -533,7 +539,7 @@ struct AddDreamSheet: View {
                         Button(action: {
                             focusedField = .patterns
                         }) {
-                            Image(systemName: "chevron.down.circle.fill")
+                            Image(systemName: "chevron.down")
                                 .font(.title2)
                                 .foregroundColor(.purple)
                         }
@@ -599,11 +605,20 @@ struct AddDreamSheet: View {
 // Extension to split arrays into chunks
 extension Array {
     func chunked(into size: Int) -> [[Element]] {
-        guard size > 0 else { return [] }
+        guard size > 0, !isEmpty else { return [] }
 
         return stride(from: 0, to: count, by: size).map { startIndex in
             let endIndex = Swift.min(startIndex + size, count)
             return Array(self[startIndex..<endIndex])
         }
     }
+}
+
+// Extension for stable date formatting
+extension DateFormatter {
+    static let sectionFormatter: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "yyyy-MM-dd"
+        return formatter
+    }()
 }

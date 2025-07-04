@@ -639,7 +639,8 @@ struct AddDreamSheet: View {
                                             }
                                         }
                                     }
-                                    .padding(.vertical, 8)
+                                    .padding(.top, 16)
+                                    .padding(.bottom, 8)
                                     .id("patternChips")
                                 }
                             }

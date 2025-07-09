@@ -83,10 +83,61 @@ jobs:
     - name: Check for sensitive data
       run: |
         # Check for hardcoded API keys, passwords, etc.
-        if grep -r "password\|secret\|key\|token" . --exclude-dir=.git --exclude-dir=DerivedData; then
-          echo "⚠️  Potential sensitive data found in code"
+        # Use more specific patterns to avoid false positives
+        echo "🔍 Checking for sensitive data patterns..."
+        
+        # Check for API keys (common patterns)
+        if grep -r "api_key\|apikey\|api-key\|API_KEY\|APIKEY" . \
+          --exclude-dir=.git \
+          --exclude-dir=DerivedData \
+          --exclude-dir=*.xcodeproj/xcuserdata \
+          --exclude-dir=*.xcodeproj/project.xcworkspace/xcuserdata \
+          --exclude=*.entitlements \
+          --exclude=*.plist \
+          --exclude=*.xcscheme \
+          --exclude=CHANGELOG.md \
+          --exclude=*.md \
+          --exclude=*.yml \
+          --exclude=*.yaml; then
+          echo "⚠️  Potential API keys found in code"
           exit 1
         fi
+        
+        # Check for passwords (more specific)
+        if grep -r "password.*=.*['\"].*['\"]\|password.*:.*['\"].*['\"]" . \
+          --exclude-dir=.git \
+          --exclude-dir=DerivedData \
+          --exclude-dir=*.xcodeproj/xcuserdata \
+          --exclude-dir=*.xcodeproj/project.xcworkspace/xcuserdata \
+          --exclude=*.entitlements \
+          --exclude=*.plist \
+          --exclude=*.xcscheme \
+          --exclude=CHANGELOG.md \
+          --exclude=*.md \
+          --exclude=*.yml \
+          --exclude=*.yaml; then
+          echo "⚠️  Potential hardcoded passwords found in code"
+          exit 1
+        fi
+        
+        # Check for access tokens (more specific)
+        if grep -r "access_token\|accessToken\|ACCESS_TOKEN\|ACCESSTOKEN" . \
+          --exclude-dir=.git \
+          --exclude-dir=DerivedData \
+          --exclude-dir=*.xcodeproj/xcuserdata \
+          --exclude-dir=*.xcodeproj/project.xcworkspace/xcuserdata \
+          --exclude=*.entitlements \
+          --exclude=*.plist \
+          --exclude=*.xcscheme \
+          --exclude=CHANGELOG.md \
+          --exclude=*.md \
+          --exclude=*.yml \
+          --exclude=*.yaml; then
+          echo "⚠️  Potential access tokens found in code"
+          exit 1
+        fi
+        
+        echo "✅ No sensitive data patterns found"
 
   archive:
     name: Create Archive

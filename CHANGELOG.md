@@ -5,6 +5,82 @@ All notable changes to OMO Dreams will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.0] - 2025-07-04
+
+### Added
+- **Pattern Category Management System**:
+  - Long press gesture on pattern chips to open category editor
+  - CategoryEditorSheet with bottom sheet presentation for easy category changes
+  - Visual category indicators with color-coded circles and checkmarks
+  - Support for 8 different pattern categories: action, place, character, object, emotion, color, sound, other
+- **Advanced Pattern Administration**:
+  - PatternManagementSheet accessible via gear icon for comprehensive pattern control
+  - Patterns grouped by category with usage counts and color-coded headers
+  - Individual pattern deletion with confirmation dialogs for patterns in use
+  - Bulk cleanup functionality for orphaned/unused patterns
+  - Real-time pattern usage analytics showing "Apariciones: X" for each pattern
+- **Lucid Dream System**:
+  - Dedicated toggle for marking lucid dreams with eye icon
+  - Recognition clue system for patterns to help identify dream states
+  - Visual indicators in dream list for lucid dreams
+- **Debug and Management Tools**:
+  - Comprehensive database inspection via info icon button
+  - Detailed logging of dreams, patterns, dream patterns, and orphaned data
+  - Automatic detection and cleanup of data inconsistencies
+  - Statistics display showing total patterns, categories, and unused patterns
+
+### Changed
+- **Enhanced User Interface**:
+  - Unified gray color scheme for better visual hierarchy (eye icon, calendar, section titles)
+  - Maintained purple accent color only for primary actions (Cancelar/Guardar buttons)
+  - Removed "(cambiar)" text from date button for cleaner appearance
+  - Improved navigation bar title with consistent gray color that doesn't change on scroll
+- **Improved Dream List Interaction**:
+  - Full row tappable areas with ZStack implementation for better touch targets
+  - Enhanced visual separation with gray background (Color(.systemGray6))
+  - Better tap detection using .onTapGesture instead of Button wrapper
+  - Smooth animations for dream additions and deletions
+- **Pattern Input Experience**:
+  - Increased vertical spacing between pattern input field and selected chips
+  - Better visual organization with .padding(.top, 16).padding(.bottom, 8)
+  - Enhanced pattern chip layout with proper row-based wrapping
+- **Data Management**:
+  - Robust SwiftData context handling to prevent "store went missing" errors
+  - Separated database operations from animations for better stability
+  - Explicit save operations with proper sequencing in updateDream() function
+  - Safer pattern handling with existence verification before insertion
+
+### Fixed
+- **Critical Bug Resolutions**:
+  - Resolved pattern duplication issues when editing dreams
+  - Fixed pattern category update problems for new patterns before saving
+  - Eliminated SwiftData context errors through improved object reference management
+  - Corrected pattern persistence inconsistencies in database operations
+- **User Experience Issues**:
+  - Fixed navigation bar title color changes during scroll
+  - Resolved pattern chip visibility and updating problems
+  - Improved pattern selection state management
+  - Enhanced dream row touch responsiveness across entire row area
+
+### Technical
+- **Architecture Improvements**:
+  - PatternSelection struct for better UI state management with Identifiable and Equatable conformance
+  - Enhanced SwiftData model relationships between Dream, Pattern, and DreamPattern
+  - Improved error handling and context management for all database operations
+  - Better separation of concerns between UI animations and data persistence
+- **Code Quality**:
+  - Comprehensive debug logging system for troubleshooting
+  - Safer pattern object handling with reference maintenance
+  - Enhanced state synchronization between UI and database
+  - Modular pattern management with reusable components
+
+### Security & Stability
+- **Data Integrity**:
+  - Automatic detection and cleanup of orphaned patterns
+  - Verification logic to prevent duplicate pattern insertion
+  - Robust error handling for all database transactions
+  - Safe pattern deletion with usage validation
+
 ## [0.0.3] - 2025-06-28
 
 ### Added

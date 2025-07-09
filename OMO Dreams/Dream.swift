@@ -10,13 +10,16 @@ import SwiftData
 
 @Model
 final class Dream {
+    @Attribute(.unique) var id: String
     var dream_date: Date
     var dream_text: String
-    var dream_patterns: String
+    var isLucid: Bool
+    @Relationship(deleteRule: .cascade) var dreamPatterns: [DreamPattern] = []
     
-    init(dream_date: Date, dream_text: String, dream_patterns: String) {
+    init(id: String = UUID().uuidString, dream_date: Date, dream_text: String, isLucid: Bool = false) {
+        self.id = id
         self.dream_date = dream_date
         self.dream_text = dream_text
-        self.dream_patterns = dream_patterns
+        self.isLucid = isLucid
     }
 }

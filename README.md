@@ -5,7 +5,10 @@ A beautiful and intuitive dream journal app built with SwiftUI and SwiftData, de
 ## 🌙 Features
 
 - **Dream Journaling**: Record and organize your dreams with rich text descriptions
+- **Lucid Dream Toggle**: Mark each dream as lucid or not with a simple switch
 - **Smart Pattern Recognition**: Categorize dreams with custom patterns and autocomplete suggestions
+- **Pattern Categories**: Organize patterns by type (action, place, character, object, emotion, color, sound)
+- **Recognition Clues**: Mark patterns as recognition clues for lucid dreaming
 - **Date Tracking**: Keep track of when each dream occurred
 - **Clean Interface**: Modern, intuitive design optimized for iOS
 - **Data Persistence**: Secure local storage using SwiftData
@@ -55,11 +58,45 @@ OMO Dreams/
 │   ├── ContentView.swift          # Main app interface
 │   ├── OMO_DreamsApp.swift        # App entry point
 │   ├── Dream.swift                # Dream data model
+│   ├── DreamPattern.swift         # Dream-Pattern relationship model
+│   ├── Pattern.swift              # Pattern data model
 │   └── Assets.xcassets/           # App assets
 ├── OMO DreamsTests/
 │   └── DreamTests.swift           # Unit tests
 └── OMO DreamsUITests/             # UI tests
 ```
+
+## 🗄️ Data Model
+
+The app uses a relational data structure with three main entities:
+
+### Dream Entity
+- `id`: Unique identifier (UUID)
+- `dream_date`: Date of the dream
+- `dream_text`: Description of the dream
+- `isLucid`: Boolean indicating if it was a lucid dream
+- `dreamPatterns`: Relationship to DreamPattern entities
+
+### Pattern Entity
+- `label`: Unique pattern name (e.g., "flying", "river")
+- `category`: Pattern category (action, place, character, object, emotion, color, sound, other)
+- `dreamPatterns`: Relationship to DreamPattern entities
+
+### DreamPattern Entity (Junction Table)
+- `dreamId`: Reference to the dream
+- `isRecognitionClue`: Boolean indicating if this pattern is a recognition clue
+- `pattern`: Relationship to Pattern entity
+- `dream`: Relationship to Dream entity
+
+### Pattern Categories
+- **Action**: Physical activities (flying, running, swimming)
+- **Place**: Locations (river, house, forest)
+- **Character**: People or beings (brother, stranger, animal)
+- **Object**: Items or things (car, book, phone)
+- **Emotion**: Feelings (fear, joy, anxiety)
+- **Color**: Visual elements (red, blue, bright)
+- **Sound**: Auditory elements (music, voices, silence)
+- **Other**: Miscellaneous patterns
 
 ## 🧪 Testing
 
@@ -88,10 +125,10 @@ xcodebuild archive -scheme "OMO Dreams" -archivePath build/OMO_Dreams.xcarchive
 ## 🔧 Configuration
 
 ### SwiftData Model
-The app uses SwiftData for local data persistence. The `Dream` model includes:
-- `dream_date`: Date of the dream
-- `dream_text`: Description of the dream
-- `dream_patterns`: Comma-separated patterns for categorization
+The app uses SwiftData for local data persistence with three main models:
+- `Dream`: Core dream data with lucid tracking
+- `Pattern`: Reusable pattern definitions with categories
+- `DreamPattern`: Junction table for dream-pattern relationships
 
 ### Bundle Identifier
 - **Bundle ID**: `com.omo.OMO-Dreams`
@@ -99,23 +136,40 @@ The app uses SwiftData for local data persistence. The `Dream` model includes:
 
 ### Color Scheme
 - **Primary**: Purple (#8B5CF6)
+- **Pattern Colors**: Category-based colors for easy identification
+  - Action: Blue
+  - Place: Green
+  - Character: Orange
+  - Object: Purple
+  - Emotion: Red
+  - Color: Pink
+  - Sound: Indigo
 - **Text**: System Gray for readability
 - **Background**: System background colors
 
 ## 📈 Roadmap
 
-### Version 0.1.0 (Next Release)
+### Version 0.2.0 (Current)
+- [x] New data structure with separate entities
+- [x] Lucid dream toggle for each dream
+- [x] Pattern categorization
+- [x] Recognition clue marking
+- [x] Enhanced UI with category colors
+
+### Version 0.3.0 (Next Release)
 - [ ] Search and filtering functionality
 - [ ] Dream statistics and analytics
+- [ ] Pattern frequency analysis
 - [ ] Export functionality
 - [ ] Custom themes
 
 ### Future Features
 - [ ] Cloud sync
-- [ ] Dream pattern analysis
-- [ ] Lucid dreaming techniques
+- [ ] Advanced dream pattern analysis
+- [ ] Lucid dreaming techniques guide
 - [ ] Notifications and reminders
 - [ ] Social features
+- [ ] Dream sharing
 
 ## 🤝 Contributing
 

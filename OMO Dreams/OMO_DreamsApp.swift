@@ -13,6 +13,8 @@ struct OMO_DreamsApp: App {
     var sharedModelContainer: ModelContainer = {
         let schema = Schema([
             Dream.self,
+            DreamPattern.self,
+            Pattern.self,
         ])
         let modelConfiguration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: false)
 

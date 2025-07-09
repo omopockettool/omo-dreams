@@ -1,6 +1,6 @@
 //
 //  DreamPattern.swift
-//  OMO Dreams
+//  omo_dreams
 //
 //  Created by Dennis Chicaiza A on 21/6/25.
 //

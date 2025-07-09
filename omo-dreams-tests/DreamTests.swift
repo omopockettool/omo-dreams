@@ -1,5 +1,5 @@
 import XCTest
-@testable import OMO_Dreams
+@testable import omo_dreams
 import SwiftData
 
 final class DreamTests: XCTestCase {

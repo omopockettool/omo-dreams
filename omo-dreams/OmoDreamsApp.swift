@@ -1,6 +1,6 @@
 //
-//  OMO_DreamsApp.swift
-//  OMO Dreams
+//  OmoDreamsApp.swift
+//  omo-dreams
 //
 //  Created by Dennis Chicaiza A on 21/6/25.
 //
@@ -9,7 +9,7 @@ import SwiftUI
 import SwiftData
 
 @main
-struct OMO_DreamsApp: App {
+struct OmoDreamsApp: App {
     var sharedModelContainer: ModelContainer = {
         let schema = Schema([
             Dream.self,

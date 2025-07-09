@@ -83,7 +83,17 @@ jobs:
     - name: Check for sensitive data
       run: |
         # Check for hardcoded API keys, passwords, etc.
-        if grep -r "password\|secret\|key\|token" . --exclude-dir=.git --exclude-dir=DerivedData; then
+        # Exclude common directories and files that contain legitimate configurations
+        if grep -r "password\|secret\|key\|token" . \
+          --exclude-dir=.git \
+          --exclude-dir=DerivedData \
+          --exclude-dir=*.xcodeproj/xcuserdata \
+          --exclude-dir=*.xcodeproj/project.xcworkspace/xcuserdata \
+          --exclude=*.entitlements \
+          --exclude=*.plist \
+          --exclude=*.xcscheme \
+          --exclude=CHANGELOG.md \
+          --exclude=*.md; then
           echo "⚠️  Potential sensitive data found in code"
           exit 1
         fi

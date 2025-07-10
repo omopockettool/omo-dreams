@@ -209,10 +209,14 @@ struct ContentView: View {
     }
     
     private func addDream() {
+        // Validate required fields before saving
+        let trimmedText = dreamText.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmedText.isEmpty else { return }
+        
         withAnimation(.easeInOut(duration: 0.4)) {
             let newDream = Dream(
                 dream_date: dreamDate,
-                dream_text: dreamText,
+                dream_text: trimmedText,
                 isLucid: isLucid
             )
             modelContext.insert(newDream)
@@ -240,9 +244,13 @@ struct ContentView: View {
     }
     
     private func updateDream(_ dream: Dream) {
+        // Validate required fields before saving
+        let trimmedText = dreamText.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmedText.isEmpty else { return }
+        
         // First, update basic properties
         dream.dream_date = dreamDate
-        dream.dream_text = dreamText
+        dream.dream_text = trimmedText
         dream.isLucid = isLucid
         
         // Store existing patterns to delete
@@ -458,6 +466,11 @@ struct AddDreamSheet: View {
     @State private var selectedCategory: PatternCategory = .other
     @State private var categoryEditorPattern: PatternSelection?
     @FocusState private var focusedField: Field?
+    
+    // Computed property to check if the form is valid
+    private var isFormValid: Bool {
+        !dreamText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
     
     enum Field {
         case description
@@ -775,8 +788,9 @@ struct AddDreamSheet: View {
                         onSave()
                         isPresented = false
                     }
-                    .foregroundColor(.purple)
+                    .foregroundColor(isFormValid ? .purple : .gray)
                     .fontWeight(.semibold)
+                    .disabled(!isFormValid)
                 }
             }
             .sheet(item: $categoryEditorPattern) { patternSelection in
@@ -948,6 +962,18 @@ struct PatternManagementSheet: View {
             .sorted { categoryDisplayName(for: $0.category) < categoryDisplayName(for: $1.category) }
     }
     
+    // Get maximum usage count for a category
+    private func maxUsageCount(for category: String) -> Int {
+        let categoryPatterns = patterns.filter { $0.category == category }
+        return categoryPatterns.map { patternUsageCount($0) }.max() ?? 0
+    }
+    
+    // Get sorted patterns by usage count for a category
+    private func sortedPatternsByUsage(for category: String) -> [Pattern] {
+        let categoryPatterns = patterns.filter { $0.category == category }
+        return categoryPatterns.sorted { patternUsageCount($0) > patternUsageCount($1) }
+    }
+    
     private func categoryDisplayName(for category: String) -> String {
         switch category {
         case "action": return "Acción"
@@ -1050,23 +1076,67 @@ struct PatternManagementSheet: View {
                                 Text("(\(categoryGroup.patterns.count))")
                                     .font(.subheadline)
                                     .foregroundColor(.secondary)
+                                
                                 Spacer()
+                                
+                                // Show max usage count for reference
+                                let maxCount = maxUsageCount(for: categoryGroup.category)
+                                if maxCount > 0 {
+                                    Text("Máx: \(maxCount)")
+                                        .font(.caption)
+                                        .foregroundColor(.secondary)
+                                        .padding(.horizontal, 8)
+                                        .padding(.vertical, 2)
+                                        .background(Color(.systemGray6))
+                                        .cornerRadius(4)
+                                }
                             }
                             .padding(.vertical, 4)
                         ) {
-                            ForEach(categoryGroup.patterns.sorted(by: { $0.label < $1.label }), id: \.label) { pattern in
+                            ForEach(sortedPatternsByUsage(for: categoryGroup.category), id: \.label) { pattern in
                                 HStack {
-                                    Text(pattern.label)
-                                        .font(.body)
-                                        .padding(.leading, 8)
-                                    
-                                    Spacer()
-                                    
                                     let usageCount = patternUsageCount(pattern)
-                                    Text("Apariciones: \(usageCount)")
-                                        .font(.caption)
-                                        .foregroundColor(usageCount == 0 ? .orange : .secondary)
+                                    let maxCount = maxUsageCount(for: categoryGroup.category)
+                                    let progress = maxCount > 0 ? Double(usageCount) / Double(maxCount) : 0.0
                                     
+                                    // Progress bar with pattern label
+                                    GeometryReader { geometry in
+                                        ZStack(alignment: .leading) {
+                                            // Background bar
+                                            RoundedRectangle(cornerRadius: 8)
+                                                .fill(Color(.systemGray5))
+                                                .frame(height: 32)
+                                            
+                                            // Progress bar
+                                            RoundedRectangle(cornerRadius: 8)
+                                                .fill(usageCount == 0 ? Color.orange : categoryColor(for: categoryGroup.category))
+                                                .frame(width: max(0, geometry.size.width * CGFloat(progress)), height: 32)
+                                                .animation(.easeInOut(duration: 0.3), value: progress)
+                                            
+                                            // Pattern label
+                                            HStack {
+                                                Text(pattern.label)
+                                                    .font(.body)
+                                                    .fontWeight(.medium)
+                                                    .foregroundColor(usageCount == 0 ? .black : .white)
+                                                    .lineLimit(1)
+                                                    .padding(.horizontal, 12)
+                                                
+                                                Spacer()
+                                                
+                                                // Usage count on the right side of the bar
+                                                Text("\(usageCount)")
+                                                    .font(.caption)
+                                                    .fontWeight(.semibold)
+                                                    .foregroundColor(usageCount == 0 ? .black : .white)
+                                                    .padding(.trailing, 12)
+                                            }
+                                        }
+                                        .frame(height: 32)
+                                    }
+                                    .frame(height: 32)
+                                    
+                                    // Delete button
                                     Button(action: {
                                         requestDeletePattern(pattern)
                                     }) {
@@ -1075,8 +1145,9 @@ struct PatternManagementSheet: View {
                                             .font(.caption)
                                     }
                                     .buttonStyle(PlainButtonStyle())
+                                    .padding(.leading, 8)
                                 }
-                                .padding(.vertical, 2)
+                                .padding(.vertical, 4)
                             }
                         }
                     }

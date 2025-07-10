@@ -209,10 +209,14 @@ struct ContentView: View {
     }
     
     private func addDream() {
+        // Validate required fields before saving
+        let trimmedText = dreamText.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmedText.isEmpty else { return }
+        
         withAnimation(.easeInOut(duration: 0.4)) {
             let newDream = Dream(
                 dream_date: dreamDate,
-                dream_text: dreamText,
+                dream_text: trimmedText,
                 isLucid: isLucid
             )
             modelContext.insert(newDream)
@@ -240,9 +244,13 @@ struct ContentView: View {
     }
     
     private func updateDream(_ dream: Dream) {
+        // Validate required fields before saving
+        let trimmedText = dreamText.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmedText.isEmpty else { return }
+        
         // First, update basic properties
         dream.dream_date = dreamDate
-        dream.dream_text = dreamText
+        dream.dream_text = trimmedText
         dream.isLucid = isLucid
         
         // Store existing patterns to delete
@@ -458,6 +466,11 @@ struct AddDreamSheet: View {
     @State private var selectedCategory: PatternCategory = .other
     @State private var categoryEditorPattern: PatternSelection?
     @FocusState private var focusedField: Field?
+    
+    // Computed property to check if the form is valid
+    private var isFormValid: Bool {
+        !dreamText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
     
     enum Field {
         case description
@@ -775,8 +788,9 @@ struct AddDreamSheet: View {
                         onSave()
                         isPresented = false
                     }
-                    .foregroundColor(.purple)
+                    .foregroundColor(isFormValid ? .purple : .gray)
                     .fontWeight(.semibold)
+                    .disabled(!isFormValid)
                 }
             }
             .sheet(item: $categoryEditorPattern) { patternSelection in
